@@ -16,9 +16,12 @@ library(dplyr)
 library(stringr)
 library(tidyr)
 library(readr)
+library(hopkins)
+library(cluster)
+library(factoextra)
 ```
 
-# Laboratorio 2 - CineVision Studios
+# **Laboratorio 2 - CineVision Studios**
 
 ```{r}
 # Helpers para columnas con "|"
@@ -51,3 +54,201 @@ movies <- movies_raw %>%
 movies_cuant <- movies[sapply(movies, is.numeric)]
 movies_cual  <- movies[sapply(movies, function(x) !is.numeric(x))]
 ```
+
+## **Clustering**
+
+### **1.1 Haga el preprocesamiento del dataset, explique qué variables no aportan información a la generación de grupos y por qué. Describa con qué variables calculará los grupos.**
+
+```{r}
+# Partir de movies_cuant, quitar columnas no deseadas
+movies_cluster <- movies_cuant %>%
+  select(-id, -voteCount, -voteAvg, -productionCountriesAmount)
+
+# Agregar la variable derivada
+movies_cluster$actorsPopularity_mean <- movies$actorsPopularity_mean
+
+# Eliminar observaciones con 0 en estas variables
+movies_cluster <- movies_cluster %>%
+  filter(budget > 0,
+         revenue > 0,
+         runtime > 0)
+
+# Eliminar NAs
+movies_cluster <- na.omit(movies_cluster)
+
+# Verificar
+dim(movies_cluster)
+```
+
+### **1.2 Analice la tendencia al agrupamiento usando el estadístico de Hopkings y la VAT (Visual Assessment of cluster Tendency). Esta última hágala si es posible, teniendo en cuenta las dimensiones del conjunto de datos. Discuta sus resultados e impresiones.**
+
+```{r}
+movies_scaled <- scale(movies_cluster)
+
+set.seed(123)
+hopkins_result <- hopkins(movies_scaled, nrow(movies_scaled) - 1)
+hopkins_result
+```
+
+Debido al valor aproximado a uno se evidencia que se tiene un alta tendencia al agrupamiento para lso datos con los que se estará trabajando.
+
+```{r}
+set.seed(56)
+if (nrow(movies_scaled) > 1500) {
+  sample_idx <- sample(1:nrow(movies_scaled), 1500)
+  movies_sample <- movies_scaled[sample_idx, ]
+} else {
+  movies_sample <- movies_scaled
+}
+
+# Matriz de distancias
+dist_matrix <- dist(movies_sample)
+
+# VAT
+fviz_dist(dist_matrix, show_labels = FALSE,
+          gradient = list(low = "black", mid = "white", high = "yellow"))
+```
+
+El gráfico resultante muestra una gran zona homogénea de color blanco, lo que indica que la mayoría de las películas comparten características numéricas similares y conforman un grupo dominante. Sin embargo, se observan líneas de mayor distancia en los bordes y en algunas partes del centro, y un pequeño bloque diferenciado en la esquina inferior izquierda, lo que sugiere la existencia de algunos subgrupos dentro del dataset.
+
+### **1.3 Determine cuál es el número de grupos a formar más adecuado para los datos que está trabajando. Haga una gráfica de codo y explique la razón de la elección de la cantidad de clústeres con la que trabajará.**
+
+```{r}
+fviz_nbclust(movies_scaled, kmeans, method = "wss") +
+  labs(title = "Método del Codo", x = "Número de clusters (k)", y = "WSS")
+```
+El método del codo muestra una dismunición progresiva, en donde se identifica que la curva se comienza a normalizar en 3, por lo que la cantidad de grupos será 3.
+
+### **1.4 Utilice los algoritmos k-medias y clustering jerárquico para agrupar. Compare los resultados generados por cada uno.**
+
+```{r}
+# k-means
+set.seed(56)
+kmeans_model <- kmeans(movies_scaled, centers = 3, nstart = 25)
+
+fviz_cluster(kmeans_model, data = movies_scaled,
+             geom = "point",
+             ellipse.type = "convex",
+             ggtheme = theme_minimal()) +
+  labs(title = "Clustering K-means (k=2)")
+
+table(kmeans_model$cluster)
+```
+
+```{r}
+# Jerarquico
+set.seed(123)
+if (nrow(movies_scaled) > 2000) {
+  sample_idx <- sample(1:nrow(movies_scaled), 2000)
+  movies_sample_hc <- movies_scaled[sample_idx, ]
+} else {
+  movies_sample_hc <- movies_scaled
+}
+
+dist_matrix_hc <- dist(movies_sample_hc)
+hc <- hclust(dist_matrix_hc, method = "ward.D2")
+
+plot(hc, labels = FALSE, hang = -1, main = "Dendrograma - Clustering Jerárquico")
+rect.hclust(hc, k = 3, border = c("red", "blue", "green"))
+
+hc_clusters <- cutree(hc, k = 3)
+
+fviz_cluster(list(data = movies_sample_hc, cluster = hc_clusters),
+             geom = "point",
+             ellipse.type = "convex",
+             ggtheme = theme_minimal()) +
+  labs(title = "Clustering Jerárquico (k=3)")
+
+# Tamaño de cada cluster
+table(hc_clusters)
+```
+
+Tras aplicar ambos algoritmos, bajo nuestro criterio, se identifica que los mejores clusters fueron generados por el método de k-means, porque con el algoritmo jerárquico se identifican que los grupos son más homogéneos, es más, el tercer cluster está totalmente adentro del primero. En contraste, con el clustering por medio de k-means, aunque sigue habiendo solapamiento entre los tres clusters, este no se ve tan drástico como sí se ve en el clustering jerárquico.
+
+### **1.5. Determine la calidad del agrupamiento hecho por cada algoritmo con el método de la silueta. Discuta los resultados.**
+
+```{r}
+# K-means
+sil_kmeans <- silhouette(kmeans_model$cluster, dist(movies_scaled))
+sil_kmeans_summary <- summary(sil_kmeans)
+sil_kmeans_summary$clus.avg.widths  # Silueta promedio por cluster
+cat("Silueta promedio general K-means:", sil_kmeans_summary$avg.width, "\n")
+
+# Jerárquico
+sil_hc <- silhouette(hc_clusters, dist(movies_sample_hc))
+sil_hc_summary <- summary(sil_hc)
+sil_hc_summary$clus.avg.widths  # Silueta promedio por cluster
+cat("Silueta promedio general Jerárquico:", sil_hc_summary$avg.width, "\n")
+```
+
+Basándonos en el método de silueta, se identifica que ninguno de los clusters generados es "bueno", en los generados por el método de k-means, el valor más alto fue de 0.2227, y los otros dos en 0.053 y 0.064. Por otro lado, en el cluster por método jerárquico, uno fue de 0.3380, otro en 0.1147, y un tercero en 0 porque es un único dato, por lo que no se puede dar un valor puntual. Sin embargo, gráficamente se evidenció que este punto está adentro de otro cluster.
+
+### **1.6 Interprete los grupos basado en el conocimiento que tiene de los datos. Recuerde investigar las medidas de tendencia central de las variables continuas y las tablas de frecuencia de las variables categóricas pertenecientes a cada grupo. Identifique hallazgos interesantes debido a las agrupaciones y describa para qué le podría servir.**
+
+```{r}
+movies_cluster$cluster_kmeans <- kmeans_model$cluster
+
+resumen_clusters <- movies_cluster %>%
+  group_by(cluster_kmeans) %>%
+  summarise(
+    n = n(),
+    budget_mean = mean(budget),
+    budget_median = median(budget),
+    revenue_mean = mean(revenue),
+    revenue_median = median(revenue),
+    runtime_mean = mean(runtime),
+    runtime_median = median(runtime),
+    popularity_mean = mean(popularity),
+    popularity_median = median(popularity),
+    genresAmount_mean = mean(genresAmount),
+    productionCoAmount_mean = mean(productionCoAmount),
+    actorsAmount_mean = mean(actorsAmount),
+    castWomenAmount_mean = mean(castWomenAmount),
+    castMenAmount_mean = mean(castMenAmount),
+    actorsPopularity_mean_mean = mean(actorsPopularity_mean, na.rm = TRUE)
+  )
+print(as.data.frame(resumen_clusters))
+
+movies$cluster_kmeans <- NA
+movies$cluster_kmeans[as.numeric(rownames(movies_cluster))] <- kmeans_model$cluster
+
+table(Cluster = movies$cluster_kmeans, Idioma = movies$originalLanguage) %>%
+  as.data.frame() %>%
+  filter(Freq > 0) %>%
+  arrange(Cluster, desc(Freq)) %>%
+  group_by(Cluster) %>%
+  slice_head(n = 5)
+
+movies %>%
+  filter(!is.na(cluster_kmeans)) %>%
+  separate_rows(genres, sep = "\\|") %>%
+  filter(genres != "") %>%
+  count(cluster_kmeans, genres) %>%
+  arrange(cluster_kmeans, desc(n)) %>%
+  group_by(cluster_kmeans) %>%
+  slice_head(n = 5)
+
+movies %>%
+  filter(!is.na(cluster_kmeans)) %>%
+  separate_rows(productionCountry, sep = "\\|") %>%
+  filter(productionCountry != "") %>%
+  count(cluster_kmeans, productionCountry) %>%
+  arrange(cluster_kmeans, desc(n)) %>%
+  group_by(cluster_kmeans) %>%
+  slice_head(n = 5)
+
+movies %>%
+  filter(!is.na(cluster_kmeans)) %>%
+  separate_rows(productionCompany, sep = "\\|") %>%
+  filter(productionCompany != "") %>%
+  count(cluster_kmeans, productionCompany) %>%
+  arrange(cluster_kmeans, desc(n)) %>%
+  group_by(cluster_kmeans) %>%
+  slice_head(n = 5)
+```
+
+Basándonos en los grupos por k-means, esta fue la descripción de los clusters:
+
+Cluster 1: Producciones pequeñas: Películas de presupuesto e ingresos moderados, elencos pequeños y duración corta. Representan el grueso de la industria cinematográfica convencional.
+Cluster 2 (1,402 películas) – Producciones medianas con elencos extensos: Presupuesto similar al Cluster 1 pero con mayores ingresos y elencos significativamente más grandes, especialmente en hombres. Podrían corresponder a producciones históricas, bélicas o de tipo ensemble.
+Cluster 3 (496 películas) – Blockbusters: Presupuestos altísimos, ingresos masivos y la mayor popularidad. Son las superproducciones con actores reconocidos y mayor duración.
