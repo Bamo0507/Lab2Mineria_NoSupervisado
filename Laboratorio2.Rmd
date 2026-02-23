@@ -252,3 +252,77 @@ Basándonos en los grupos por k-means, esta fue la descripción de los clusters:
 Cluster 1: Producciones pequeñas: Películas de presupuesto e ingresos moderados, elencos pequeños y duración corta. Representan el grueso de la industria cinematográfica convencional.
 Cluster 2 (1,402 películas) – Producciones medianas con elencos extensos: Presupuesto similar al Cluster 1 pero con mayores ingresos y elencos significativamente más grandes, especialmente en hombres. Podrían corresponder a producciones históricas, bélicas o de tipo ensemble.
 Cluster 3 (496 películas) – Blockbusters: Presupuestos altísimos, ingresos masivos y la mayor popularidad. Son las superproducciones con actores reconocidos y mayor duración.
+
+## **Análisis de componentes Principales**
+
+• Estudia la matriz de correlación, la agrega y explica lo que observa en ella
+
+
+Variables usadas en esta matriz:
+
+budget,revenue,runtime,popularity,voteAvg,voteCount,genresAmount,productionCoAmount,productionCountriesAmount,actorsAmount,castWomenAmount,castMenAmount,releaseYear
+
+-Hay correlaciones fuertes entre variables de “éxito comercial / exposición” 
+Algunos ejemplos son 
+runtime y voteAvg tienen correlación moderada-alta
+
+runtime ↔ voteAvg ≈ 0.60
+Interpretación: películas con mayor presupuesto tienden a recaudar más y también a acumular más votos.
+Esto sugiere que estas variables comparten información (bueno para PCA, porque hay estructura común).
+-Runtime y voteAvg tienen correlación moderada-alta
+Algunos ejemplos son 
+runtime y voteAvg tienen correlación moderada-alta
+
+runtime ↔ voteAvg ≈ 0.60
+Interpretación: en este dataset, las películas más largas tienden a tener mejor calificación promedio (ojo: esto es correlación, no causalidad).
+
+-releaseYear se relaciona negativamente con varias variables
+Algunos ejemplos son
+
+releaseYear ↔ voteAvg ≈ -0.54
+
+releaseYear ↔ runtime ≈ -0.49
+
+Interpretación: las películas más recientes (mayor releaseYear) tienden a tener, en promedio, menor duración, menor calificación promedio y menos votos acumulados (esto último puede pasar porque han estado menos tiempo disponibles).
+
+-Variables con correlación baja/casi nula (aportan información más independiente)
+Algunos ejemplos son 
+actorsAmount
+
+castWomenAmount
+
+castMenAmount 
+
+popularity
+Interpretación: estas variables no están tan alineadas con el bloque de presupuesto/recaudación/votos, así que podrían aportar dimensiones distintas.
+
+Relación interesante en el elenco / producción
+
+El ejemplo mas claro es:
+
+productionCountriesAmount ↔ castMenAmount ≈ 0.44 (moderada)
+
+Interpretación: producciones en más países podrían asociarse con elencos más grandes/masculinos en este dataset (habría que revisar si esto es efecto de tipo de producción o de datos faltantes).
+
+• Determina si es posible usar la técnica de análisis factorial para hallar las componentes principales
+
+Sí es posible aplicar una técnica de análisis factorial (o PCA) sobre las variables numéricas del conjunto de datos, ya que el índice KMO global obtenido fue 0.835, lo cual se considera bueno y sugiere que existe suficiente varianza común entre las variables para realizar este tipo de análisis. No obstante, al revisar la adecuación por variable, castMenAmount presenta un KMO cercano a 0.49, lo que indica que esa variable podría no ajustarse tan bien a la estructura factorial y conviene revisarla en análisis posteriores.
+
+• Determina si vale la pena aplicar las componentes principales interpretando la prueba de esfericidad de Bartlett
+
+Sí vale la pena aplicar componentes principales. La prueba de esfericidad de Bartlett resultó altamente significativa ( 𝜒 2 ( 78 ) = 115646.63 χ 2 (78)=115646.63, 𝑝 < 0.001 p<0.001), por lo que se rechaza la hipótesis nula de que la matriz de correlación sea una matriz identidad. Esto indica que existen correlaciones suficientes entre las variables y, en consecuencia, el uso de PCA está justificado en este conjunto de datos.
+
+• Obtiene los componentes principales y explica cuántos seleccionará para explicar la mayor variabilidad posible.
+
+Al aplicar PCA sobre las variables numéricas estandarizadas (excluyendo el identificador id), se obtuvo que el CP1 explica 37.63% de la varianza, el CP2 13.31% y el CP3 10.44%, acumulando 61.38% entre los tres primeros componentes.
+Si se utiliza el criterio de autovalores mayores que 1 (Kaiser), se seleccionarían 3 componentes principales. Sin embargo, para explicar una mayor proporción de variabilidad, se pueden seleccionar 6 componentes, con los cuales se alcanza aproximadamente 80.21% de la varianza acumulada. En este análisis se seleccionan 6 componentes para conservar la mayor variabilidad posible con una reducción de dimensionalidad razonable.
+
+• Interpreta los coeficientes principales.  
+
+En el primer componente principal (CP1) destacan coeficientes positivos altos en actorsAmount, castWomenAmount, runtime, voteCount, voteAvg, budget y revenue, y un coeficiente negativo relevante en releaseYear. Esto sugiere que CP1 representa una dimensión asociada a películas con mayor escala de producción/recepción (más presupuesto, recaudación, votos y elenco), en contraste con películas más recientes.
+
+En el segundo componente (CP2) se observan coeficientes negativos importantes en revenue y budget, mientras que productionCountriesAmount, castMenAmount, voteAvg y runtime muestran aportes positivos. Este componente diferencia películas con mayor internacionalización/estructura de reparto frente a variables más directamente comerciales.
+
+En el tercer componente (CP3) los coeficientes más altos corresponden a castMenAmount y productionCountriesAmount, por lo que este componente parece capturar principalmente una dimensión relacionada con composición del elenco y alcance de producción internacional.
+
+En general, los coeficientes muestran que las variables comerciales (budget, revenue, voteCount) y de tamaño/estructura (actorsAmount, castWomenAmount, runtime) se concentran en los primeros componentes, mientras que otras variables como composición del reparto e internacionalización aportan variabilidad en componentes posteriores.
