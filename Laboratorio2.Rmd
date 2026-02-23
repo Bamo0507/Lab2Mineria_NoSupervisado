@@ -249,9 +249,9 @@ movies %>%
 
 Basándonos en los grupos por k-means, esta fue la descripción de los clusters:
 
-Cluster 1: Producciones pequeñas: Películas de presupuesto e ingresos moderados, elencos pequeños y duración corta. Representan el grueso de la industria cinematográfica convencional.
-Cluster 2 (1,402 películas) – Producciones medianas con elencos extensos: Presupuesto similar al Cluster 1 pero con mayores ingresos y elencos significativamente más grandes, especialmente en hombres. Podrían corresponder a producciones históricas, bélicas o de tipo ensemble.
-Cluster 3 (496 películas) – Blockbusters: Presupuestos altísimos, ingresos masivos y la mayor popularidad. Son las superproducciones con actores reconocidos y mayor duración.
+Cluster 1 Producciones pequeñas: Películas de presupuesto e ingresos moderados, elencos pequeños y duración corta.
+Cluster 2 Producciones medianas: Presupuesto similar al Cluster 1 pero con mayores ingresos y elencos significativamente más grandes, especialmente en hombres. 
+Cluster 3 Blockbusters: Presupuestos altos, ingresos masivos y la mayor popularidad. Son las superproducciones con actores reconocidos y mayor duración.
 
 ## **Análisis de componentes Principales**
 
