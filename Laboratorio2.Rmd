@@ -1,0 +1,53 @@
+---
+title: "Laboratorio 2 - Cinevision"
+author: "Bryan Martínez, Adriana Palacios, y Nery Molina"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  fig.align = "center",
+  out.width = "0.9\\linewidth"
+)
+library(nortest)
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(readr)
+```
+
+# Laboratorio 2 - CineVision Studios
+
+```{r}
+# Helpers para columnas con "|"
+split_pipe <- function(x) {
+  if (is.na(x) || x == "") return(character(0))
+  parts <- unlist(strsplit(x, "\\|"))
+  parts <- trimws(parts)
+  parts[parts != ""]
+}
+
+split_pipe_num <- function(x) {
+  nums <- suppressWarnings(as.numeric(split_pipe(x)))
+  nums[!is.na(nums)]
+}
+
+safe_mean <- function(x) if (length(x) == 0) NA_real_ else mean(x, na.rm = TRUE)
+
+movies_raw <- readr::read_csv(
+  "movies_2026.csv",
+  locale = readr::locale(encoding = "latin1"),
+  show_col_types = FALSE
+)
+
+movies <- movies_raw %>%
+  mutate(
+    # actorsPopularity -> métricas (para manejar 3.45|12.31|...)
+    actorsPopularity_mean = sapply(lapply(actorsPopularity, split_pipe_num), safe_mean)
+  )
+
+movies_cuant <- movies[sapply(movies, is.numeric)]
+movies_cual  <- movies[sapply(movies, function(x) !is.numeric(x))]
+```
