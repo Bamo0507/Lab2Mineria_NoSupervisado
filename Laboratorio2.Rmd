@@ -19,6 +19,8 @@ library(readr)
 library(hopkins)
 library(cluster)
 library(factoextra)
+library(arules)
+library(arulesViz)
 ```
 
 # **Laboratorio 2 - CineVision Studios**
@@ -330,3 +332,107 @@ En el segundo componente (CP2) se observan coeficientes negativos importantes en
 En el tercer componente (CP3) los coeficientes más altos corresponden a castMenAmount y productionCountriesAmount, por lo que este componente parece capturar principalmente una dimensión relacionada con composición del elenco y alcance de producción internacional.
 
 En general, los coeficientes muestran que las variables comerciales (budget, revenue, voteCount) y de tamaño/estructura (actorsAmount, castWomenAmount, runtime) se concentran en los primeros componentes, mientras que otras variables como composición del reparto e internacionalización aportan variabilidad en componentes posteriores.
+
+## **Reglas de Asociación**
+
+```{r}
+movies_assoc <- movies_cluster %>%
+  select(budget, revenue, runtime, popularity)
+
+movies_assoc$budget_cat <- cut(movies_assoc$budget,
+  breaks = quantile(movies_assoc$budget, probs = c(0, 0.33, 0.66, 1)),
+  labels = c("budget_bajo", "budget_medio", "budget_alto"),
+  include.lowest = TRUE)
+
+movies_assoc$revenue_cat <- cut(movies_assoc$revenue,
+  breaks = quantile(movies_assoc$revenue, probs = c(0, 0.33, 0.66, 1)),
+  labels = c("revenue_bajo", "revenue_medio", "revenue_alto"),
+  include.lowest = TRUE)
+
+movies_assoc$runtime_cat <- cut(movies_assoc$runtime,
+  breaks = quantile(movies_assoc$runtime, probs = c(0, 0.33, 0.66, 1)),
+  labels = c("runtime_corto", "runtime_medio", "runtime_largo"),
+  include.lowest = TRUE)
+
+movies_assoc$popularity_cat <- cut(movies_assoc$popularity,
+  breaks = quantile(movies_assoc$popularity, probs = c(0, 0.33, 0.66, 1)),
+  labels = c("popularity_baja", "popularity_media", "popularity_alta"),
+  include.lowest = TRUE)
+
+movies_assoc <- movies_assoc %>%
+  select(budget_cat, revenue_cat, runtime_cat, popularity_cat)
+
+movies_assoc <- na.omit(movies_assoc)
+
+movies_trans <- as(movies_assoc, "transactions")
+summary(movies_trans)
+
+itemFrequencyPlot(movies_trans, topN = 12, type = "absolute",
+                  main = "Ítems más frecuentes")
+
+rules_1 <- apriori(movies_trans,
+  parameter = list(supp = 0.05, conf = 0.5, minlen = 2))
+summary(rules_1)
+inspect(head(sort(rules_1, by = "lift"), 10))
+
+rules_2 <- apriori(movies_trans,
+  parameter = list(supp = 0.03, conf = 0.6, minlen = 2))
+summary(rules_2)
+inspect(head(sort(rules_2, by = "lift"), 10))
+
+rules_3 <- apriori(movies_trans,
+  parameter = list(supp = 0.01, conf = 0.7, minlen = 2))
+summary(rules_3)
+inspect(head(sort(rules_3, by = "lift"), 10))
+
+rules_best <- subset(rules_1, subset = lift > 1.5 & confidence > 0.6)
+inspect(sort(rules_best, by = "lift"))
+
+plot(rules_1, method = "scatterplot",
+     measure = c("support", "confidence"),
+     shading = "lift",
+     main = "Soporte vs Confianza")
+
+plot(rules_best, method = "graph",
+     engine = "htmlwidget")
+```
+
+### **2.1 Construcción de reglas de asociación usando el algoritmo A Priori**
+
+El algoritmo A Priori es un método de aprendizaje no supervisado que permite identificar relaciones frecuentes entre variables dentro de un conjunto de datos. Para comprender su funcionamiento, resulta útil pensar en una analogía: imaginemos que vamos al supermercado y en nuestro carrito tenemos leche, huevos y harina. Lo que A Priori hace es analizar las transacciones de muchos compradores y determinar que, dado que se tienen esos tres elementos, es muy probable que también se adquiera mantequilla, porque quizá el comprador quiere hacer un pastel. En este contexto, cada carrito de compras es una "transacción", y el algoritmo busca patrones frecuentes entre los ítems que las componen.
+
+En nuestro caso, en lugar de productos de supermercado, trabajamos con características de películas. Cada película es una transacción y sus características son los ítems. Las variables seleccionadas para este análisis fueron presupuesto (budget), ingresos (revenue), duración (runtime) y popularidad (popularity).
+
+Dado que el algoritmo A Priori no trabaja con variables numéricas continuas sino con categorías, fue necesario discretizar estas variables. Para ello se utilizaron terciles: el primer tercil (0% a 33%) corresponde a la categoría "bajo", el segundo tercil (33% a 66%) a "medio", y el tercer tercil (66% a 100%) a "alto". De esta forma, cada película queda descrita por cuatro categorías, por ejemplo: {budget_alto, revenue_alto, runtime_largo, popularity_alta}.
+
+### **2.2 Prueba con varios valores de confianza y soporte**
+
+Se generaron reglas de asociación con tres configuraciones distintas, variando los parámetros de soporte y confianza:
+
+Configuración 1: soporte = 0.05, confianza = 0.5 → 56 reglas generadas
+Configuración 2: soporte = 0.03, confianza = 0.6 → 42 reglas generadas
+Configuración 3: soporte = 0.01, confianza = 0.7 → 20 reglas generadas
+
+El soporte indica la proporción mínima de películas en las que debe aparecer la combinación para que la regla sea considerada. Por ejemplo, un soporte de 0.05 significa que la regla debe estar presente en al menos el 5% de las películas. La confianza indica la probabilidad de que, si se cumple el lado izquierdo de la regla (antecedente), también se cumpla el lado derecho (consecuente). Una confianza de 0.5 significa que esto ocurre al menos el 50% de las veces. El parámetro minlen = 2 establece que cada regla debe involucrar al menos dos ítems (un antecedente y un consecuente), descartando reglas triviales de un solo elemento.
+
+La estrategia fue comenzar con una configuración más permisiva (mayor soporte, menor confianza) para obtener un panorama amplio, y progresivamente ir aumentando la exigencia (menor soporte, mayor confianza) para quedarnos con las reglas más estrictas y los patrones más marcados dentro del dataset.
+
+Al observar la gráfica de ítems más frecuentes, se identificó que las 12 categorías resultantes de la discretización presentan frecuencias parejas, todas en torno a las 1,400-1,500 apariciones.
+
+### **2.3 Discusión de reglas de asociación**
+
+Todas las reglas generadas presentaron un lift superior a 1, lo que indica que los patrones identificados son reales y no resultado de la aleatoriedad.
+
+- Las películas con bajo presupuesto, duración corta y popularidad baja generan ingresos bajos, con una confianza del 86.3% y un lift de 2.61. Esto indica que cuando una película reúne estas tres características, que por lo general son indicadores negativos, es muy probable que su desempeño comercial sea malo.
+- De forma similar, las películas con presupuesto alto, duración larga y popularidad alta generan ingresos altos, con una confianza del 87.4% y un lift de 2.57. Al igual que en el caso anterior, el lift alto confirma que este patrón no es producto de aleatoriedad sino algo real. Esta fue la regla con mayor confianza de todo el análisis, y resulta bastante lógico: esperaríamos que películas con alto presupuesto y mucha fama tengan un buen desempeño en el mercado.
+- Las películas con presupuesto alto y popularidad alta generan ingresos altos con un 85.1% de confianza y un soporte de 15.3%. Esta regla explora algo similar a lo mencionado anteriormente, con la diferencia de que aquí solo se toman en cuenta el presupuesto y la popularidad, sin considerar la duración. Al tener un soporte de 15.3%, se confirma que no es un patrón aislado sino algo que se cumple de forma consistente en una buena porción del dataset.
+- En otras reglas más simples, en donde el único antecedente es el presupuesto, se observó lo que esperaríamos: si se tiene presupuesto alto, se predicen ingresos altos con una confianza de 70.2%, y si los ingresos son altos, se predice que el presupuesto fue alto con un 69.8% de confianza. Esta simetría evidencia que en el mundo cinematográfico la inversión y el retorno van de la mano.
+
+Finalmente, al observar el gráfico de Soporte vs Confianza, se identifica que las reglas con mayor lift se concentran en zonas de alta confianza pero bajo soporte. Esto significa que si se cumplen los antecedentes de estas reglas, es muy probable que las consecuencias ocurran; sin embargo, al tener un soporte bajo, este comportamiento aplica únicamente para subgrupos específicos dentro del dataset y no para la totalidad de las películas.
+
+## **Otros algoritmos de aprendizaje no supervisado**
+
+Nery
+
+
+
