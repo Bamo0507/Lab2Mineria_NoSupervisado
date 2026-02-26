@@ -434,5 +434,49 @@ Finalmente, al observar el gráfico de Soporte vs Confianza, se identifica que l
 
 Nery
 
+## **Conclusiones**
+
+### **Resumen de hallazgos en agrupamiento**
+
+Se aplicaron dos algoritmos de agrupamiento: K-means y clustering jerárquico. Tras comparar ambos resultados, se determinó que K-means fue el más adecuado para este dataset. El clustering jerárquico presentó resultados poco satisfactorios, ya que uno de los clusters generados quedó completamente contenido dentro del área de otro, lo que dificulta la interpretación. En contraste, K-means, si bien generó clusters con cierto grado de solapamiento entre los tres grupos, permitió identificar de forma más clara la pertenencia de las películas a cada cluster. Personalmente, si tuviera que abordar nuevamente un problema de agrupamiento, optaría por K-means como primera opción dado el mejor desempeño que mostró en este caso.
+
+Con los clusters generados se clasificaron las películas en estas categorías:
+
+- Cluster 1: películas con presupuestos e ingresos moderados, casting pequeño y duración corta.
+- Cluster 2: películas con presupuestos similares a los del primer cluster, pero que tuvieron mejores ingresos.
+- Cluster 3: películas de mayor escala, presupuestos altos, ingresos grandes y muy populares.
+
+### **Conclusiones sobre el análisis de componentes principales**
+
+Nery
+
+### **Reglas de asociación más interesantes**
+
+Lo más destacable de las reglas de asociación es que lograron validar lo que uno esperaría de forma lógica. Si una película tiene buen presupuesto, es popular y tiene una duración decente, lo natural sería esperar que le vaya bien en el mercado. Y eso es justamente lo que las reglas confirmaron: las películas con presupuesto bajo, duración corta y popularidad baja presentaban ingresos bajos, mientras que las películas con presupuesto alto, duración larga y popularidad alta presentaban ingresos altos, ambas con confianzas superiores al 86%.
+
+Adicionalmente, se encontraron reglas que validaron este comportamiento incluso con menos variables. Por ejemplo, con solo tener presupuesto alto y popularidad alta, ya se predecían ingresos altos con un 85% de confianza. Esto refuerza la idea de que la inversión y la visibilidad son los factores más determinantes en el éxito comercial de una película.
+
+### **Lo más interesante sobre algoritmos de aprendizaje no supervisado**
+
+Lo que más destaca al explorar estos algoritmos es su propia naturaleza: la idea de que, a partir de cierta data, se puedan descubrir patrones e información escondida entre los datos. En un aprendizaje supervisado, uno ya sabe la respuesta; se tiene un grupo de datos, se analiza y ya se sabe qué se quiere predecir o en qué categorías se van a clasificar las observaciones. Pero en el aprendizaje no supervisado la dinámica es completamente distinta.
+
+A mi parecer, este tipo de aprendizaje requiere un criterio más alto para poder interpretar los resultados. Es necesario ser más consciente de la data con la que se está trabajando y de la información que contiene el dataset, para que cuando el algoritmo arroje sus resultados, uno sea capaz de darles sentido. Por ejemplo, con clustering, no hay etiquetas previas; el algoritmo agrupa las observaciones y es responsabilidad del analista observar las características en común de cada cluster para decir: estos datos se están clasificando de tal forma porque comparten tales características.
+
+Algo similar ocurre con las reglas de asociación: sin saber nada previamente, tras analizar los datos se encuentran relaciones complejas entre variables que permiten decir que si se tienen ciertas características, muy probablemente se va a obtener cierto resultado. Incluso con PCA, la reducción de dimensionalidad resulta interesante que se sea capaz de identificar relaciones tan complejas dentro de un dataset hasta el punto de poder definir la importancia o el impacto que tiene cada variable en el comportamiento de los datos.
+
+El aprendizaje no supervisado no hay una guía clara de hacia dónde llegar, pero analizando las observaciones existentes y tratando de identificar patrones, se trata de descifrar lo que a simple vista no se ve. Y resulta gratificante cuando los datos cobran sentido y se logra encontrar, a través de estos algoritmos, información que de otra forma probablemente nunca se hubiera descubierto
+
+### **Propone sugerencias a CineVision Studios para nuevos desarrollos y mejora de áreas**
+
+Mejorar la calidad de los datos: Se recomienda que en futuras recopilaciones de datos se procure tener la menor cantidad posible de información faltante. En este dataset, una gran cantidad de observaciones carecen de datos en variables clave como presupuesto e ingresos, lo que dificulta incluirlas en los análisis. Es complicado clasificar o analizar el comportamiento de películas que apenas tienen datos registrados frente a otras que tienen todas sus variables completas.
+
+Aprovechar los hallazgos para la toma de decisiones: Desde un punto de vista de negocios, los análisis realizados confirman que las películas con mayor presupuesto y popularidad tienden a generar mayores ingresos. Se recomienda presentar estos hallazgos en informes internos apoyados con tablas, gráficos y métricas que demuestren la veracidad de los patrones encontrados, de manera que la información respalde decisiones estratégicas de inversión.
+
+Si CineVision Studios llega a contar con un equipo de analítica, se sugiere aplicar el algoritmo A Priori incorporando más variables categóricas, como géneros, países de producción o idiomas. Al ampliar el análisis se podrían descubrir patrones adicionales que no fueron explorados en este estudio, y esta información podría incluso representar una nueva fuente de ingresos si se ofrece como inteligencia de mercado a productoras.
+
+
+
+
+
 
 
