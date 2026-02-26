@@ -80,6 +80,10 @@ movies_cluster <- na.omit(movies_cluster)
 dim(movies_cluster)
 ```
 
+Para generar los clusters se utilizaron únicamente variables numéricas, ya que el algoritmo K-means se basa en distancias y requiere datos medibles. Por esta razón, se excluyeron las variables de texto como actores, directores, títulos, géneros, países y URLs, porque no pueden compararse directamente con este método. Además, parte de esta información ya está representada en el dataset mediante conteos como genresAmount, actorsAmount, castWomenAmount y castMenAmount, por lo que no se pierde información relevante al eliminarlas.
+
+También se descartó la variable id por ser solo un identificador sin valor analítico, y releaseYear porque todas las películas pertenecen al mismo año, lo que no aporta variación. De igual forma, se excluyeron voteAvg, voteCount y productionCountriesAmount por no ser relevantes para el objetivo del análisis. En cambio, se creó la variable actorsPopularity_mean, que resume en un valor numérico la popularidad del elenco. Finalmente, se eliminaron los registros con valores 0 en budget, revenue y runtime, ya que indican datos no reportados y podrían afectar el cálculo de distancias, generando clusters poco confiables.
+
 ### **1.2 Analice la tendencia al agrupamiento usando el estadístico de Hopkings y la VAT (Visual Assessment of cluster Tendency). Esta última hágala si es posible, teniendo en cuenta las dimensiones del conjunto de datos. Discuta sus resultados e impresiones.**
 
 ```{r}
