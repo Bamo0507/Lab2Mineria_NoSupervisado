@@ -456,6 +456,53 @@ Lo más destacable de las reglas de asociación es que lograron validar lo que u
 
 Adicionalmente, se encontraron reglas que validaron este comportamiento incluso con menos variables. Por ejemplo, con solo tener presupuesto alto y popularidad alta, ya se predecían ingresos altos con un 85% de confianza. Esto refuerza la idea de que la inversión y la visibilidad son los factores más determinantes en el éxito comercial de una película.
 
+### **Otros algoritmos de aprendizaje no supervisado (UMAP)**
+
+#### **Algoritmo elegido y por qué es útil**
+
+Para complementar el análisis de clustering realizado previamente, decidí aplicar UMAP (Uniform Manifold Approximation and Projection), un algoritmo de reducción de dimensionalidad no lineal. Lo elegí porque, a diferencia de PCA que asume relaciones lineales entre variables, UMAP es capaz de capturar estructuras más complejas en los datos y preservar tanto la estructura local (películas similares permanecen cerca) como la global (clusters distintos se separan visualmente).
+
+En este contexto, UMAP resulta especialmente útil porque ya realicé clustering con k-means y obtuve tres grupos, pero la silueta no fue perfecta y observé solapamiento entre clusters. UMAP me permite proyectar las películas en un espacio 2D donde puedo validar visualmente si los clusters identificados por k-means realmente corresponden a grupos separables o si el solapamiento es inherente a la estructura de los datos. Además, como estoy trabajando con múltiples variables numéricas (presupuesto, ingresos, popularidad, duración, etc.), la reducción a dos dimensiones facilita la interpretación sin perder la esencia de las relaciones entre películas.
+
+#### **Resultados obtenidos y qué significa**
+
+```{r umap-analysis, message=FALSE, warning=FALSE}
+# Si no está instalado uwot, ejecutar: install.packages("uwot")
+library(uwot)
+library(ggplot2)
+
+set.seed(123)
+umap_result <- umap(movies_scaled,
+                    n_neighbors = 15,
+                    min_dist = 0.10,
+                    metric = "euclidean",
+                    n_components = 2)
+
+umap_df <- data.frame(
+  UMAP1 = umap_result[, 1],
+  UMAP2 = umap_result[, 2],
+  Cluster = as.factor(kmeans_model$cluster)
+)
+
+ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = Cluster)) +
+  geom_point(alpha = 0.6, size = 2) +
+  scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
+  labs(title = "Proyección UMAP de películas coloreadas por cluster K-means",
+       x = "UMAP Dimensión 1",
+       y = "UMAP Dimensión 2",
+       color = "Cluster") +
+  theme_minimal() +
+  theme(legend.position = "right")
+```
+
+Al observar la proyección UMAP, se confirma lo que ya había intuido con el análisis de silueta: existe separación entre los clusters, pero no es perfecta. El cluster correspondiente a los blockbusters (películas de alto presupuesto, altos ingresos y gran popularidad) tiende a formar una región más diferenciada en el espacio UMAP, lo cual tiene sentido porque estas películas tienen características numéricas marcadamente distintas al resto. Por otro lado, los clusters de producciones pequeñas y medianas muestran mayor traslape entre sí, lo que refleja que estas películas comparten características similares en varias dimensiones.
+
+Este resultado es consistente con lo encontrado anteriormente: k-means logra identificar el grupo de superproducciones de forma más clara, mientras que la distinción entre películas de menor escala es más difusa. UMAP me permite ver que esta ambigüedad no es un artefacto del algoritmo de clustering, sino una característica real de los datos: hay un continuo de películas con presupuestos y características intermedias que no forman grupos claramente separados.
+
+#### **Conclusion**
+
+UMAP valida que los clusters de k-means capturan estructura real en los datos, con buena separación para blockbusters pero traslape esperado entre producciones pequeñas y medianas debido a su similitud inherente.
+
 ### **Lo más interesante sobre algoritmos de aprendizaje no supervisado**
 
 Lo que más destaca al explorar estos algoritmos es su propia naturaleza: la idea de que, a partir de cierta data, se puedan descubrir patrones e información escondida entre los datos. En un aprendizaje supervisado, uno ya sabe la respuesta; se tiene un grupo de datos, se analiza y ya se sabe qué se quiere predecir o en qué categorías se van a clasificar las observaciones. Pero en el aprendizaje no supervisado la dinámica es completamente distinta.
