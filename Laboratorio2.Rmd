@@ -453,7 +453,6 @@ Lo más destacable de las reglas de asociación es que lograron validar lo que u
 
 Adicionalmente, se encontraron reglas que validaron este comportamiento incluso con menos variables. Por ejemplo, con solo tener presupuesto alto y popularidad alta, ya se predecían ingresos altos con un 85% de confianza. Esto refuerza la idea de que la inversión y la visibilidad son los factores más determinantes en el éxito comercial de una película.
 
-### **Otros algoritmos de aprendizaje no supervisado (UMAP)**
 
 #### **Algoritmo elegido y por qué es útil**
 
@@ -535,143 +534,15 @@ ggplot(plot_df, aes(Dim1, Dim2, color = Cluster)) +
   ) +
   theme_minimal()
 ```
-```{r ver-columnas, message=FALSE, warning=FALSE}
-objs <- ls(envir = .GlobalEnv)
-dfs <- objs[sapply(objs, function(nm) is.data.frame(get(nm, envir = .GlobalEnv)))]
-for (nm in dfs) {
-  cat("\nDF:", nm, "\n")
-  print(head(names(get(nm, envir = .GlobalEnv)), 40))
-}
-```
-Al observar la proyección UMAP, se confirma lo que ya había intuido con el análisis de silueta: existe separación entre los clusters, pero no es perfecta. El cluster correspondiente a los blockbusters (películas de alto presupuesto, altos ingresos y gran popularidad) tiende a formar una región más diferenciada en el espacio UMAP, lo cual tiene sentido porque estas películas tienen características numéricas marcadamente distintas al resto. Por otro lado, los clusters de producciones pequeñas y medianas muestran mayor traslape entre sí, lo que refleja que estas películas comparten características similares en varias dimensiones.
 
-Este resultado es consistente con lo encontrado anteriormente: k-means logra identificar el grupo de superproducciones de forma más clara, mientras que la distinción entre películas de menor escala es más difusa. UMAP me permite ver que esta ambigüedad no es un artefacto del algoritmo de clustering, sino una característica real de los datos: hay un continuo de películas con presupuestos y características intermedias que no forman grupos claramente separados.
+Al ver la proyección 2D, me sirvió para confirmar que los clusters que saqué con k-means no son inventados: sí hay estructura en los datos. El grupo que representa películas de mayor escala tiende a quedar más concentrado y más separado, lo cual tiene sentido porque esas películas tienen valores claramente más altos en variables como presupuesto, ingresos y popularidad.
+En cambio, los otros dos grupos se traslapan más, y eso me indica que la diferencia entre producciones pequeñas y medianas no es tan “cortada”, sino más bien un continuo. Para mí esto es importante porque me dice que el solapamiento no es solo un problema del algoritmo, sino una característica real del dataset, y por eso esas fronteras hay que interpretarlas con cuidado.
+
+Elegí UMAP porque me permite bajar todas las variables numéricas a dos dimensiones sin asumir que la relación entre variables es lineal. Como yo ya había visto que la silueta no era perfecta y que había mezcla entre clusters, esta proyección me ayuda a validar visualmente si k-means realmente está capturando patrones del dataset o si los grupos se ven completamente revueltos.
 
 #### **Conclusion**
 
-UMAP valida que los clusters de k-means capturan estructura real en los datos, con buena separación para blockbusters pero traslape esperado entre producciones pequeñas y medianas debido a su similitud inherente.
-
-### Otros algoritmos de aprendizaje no supervisado
-
-```{r otros-algoritmos-setup, message=FALSE, warning=FALSE}
-# Deteccion automatica de matriz escalada
-set.seed(123)
-
-if (exists("movies_scaled")) {
-  X <- movies_scaled
-} else if (exists("X_scaled")) {
-  X <- X_scaled
-} else if (exists("scaled_data")) {
-  X <- scaled_data
-} else if (exists("data_scaled")) {
-  X <- data_scaled
-} else {
-  # Crear X desde columnas numericas del dataframe principal
-  if (exists("movies_cluster")) {
-    df_base <- movies_cluster
-  } else if (exists("movies")) {
-    df_base <- movies
-  } else {
-    stop("No se encontro dataframe base")
-  }
-  X_numeric <- df_base[, sapply(df_base, is.numeric), drop = FALSE]
-  X_numeric <- X_numeric[complete.cases(X_numeric), ]
-  X <- scale(X_numeric)
-}
-
-# Deteccion automatica de clusters
-if (exists("kmeans_model") && !is.null(kmeans_model$cluster)) {
-  cluster_vec <- kmeans_model$cluster
-} else if (exists("clusters")) {
-  cluster_vec <- clusters
-} else if (exists("kmeans_clusters")) {
-  cluster_vec <- kmeans_clusters
-} else {
-  # Fallback: correr kmeans
-  set.seed(123)
-  km_fallback <- kmeans(X, centers = 3, nstart = 25)
-  cluster_vec <- km_fallback$cluster
-}
-
-# Asegurar que cluster_vec tenga la misma longitud que X
-if (length(cluster_vec) != nrow(X)) {
-  set.seed(123)
-  km_fallback <- kmeans(X, centers = 3, nstart = 25)
-  cluster_vec <- km_fallback$cluster
-}
-```
-
-```{r otros-algoritmos-reduccion, message=FALSE, warning=FALSE}
-# Reduccion de dimensionalidad con fallback: UMAP -> t-SNE -> PCA
-set.seed(123)
-metodo_usado <- ""
-resultado_2d <- NULL
-
-# Intentar UMAP
-if (requireNamespace("uwot", quietly = TRUE)) {
-  tryCatch({
-    resultado_2d <- uwot::umap(X, n_neighbors = 15, min_dist = 0.1, 
-                                n_components = 2, n_threads = 1)
-    metodo_usado <- "UMAP"
-  }, error = function(e) {
-    resultado_2d <<- NULL
-  })
-}
-
-# Fallback a t-SNE
-if (is.null(resultado_2d) && requireNamespace("Rtsne", quietly = TRUE)) {
-  tryCatch({
-    # Remover duplicados para Rtsne
-    X_unique <- unique(X)
-    idx_unique <- !duplicated(X)
-    tsne_out <- Rtsne::Rtsne(X_unique, dims = 2, perplexity = min(30, floor(nrow(X_unique)/4)),
-                              verbose = FALSE, check_duplicates = FALSE)
-    resultado_2d <- matrix(NA, nrow = nrow(X), ncol = 2)
-    resultado_2d[idx_unique, ] <- tsne_out$Y
-    # Rellenar duplicados con su correspondiente
-    if (any(!idx_unique)) {
-      for (i in which(!idx_unique)) {
-        match_idx <- which(idx_unique)[match(paste(X[i,], collapse = "_"), 
-                                              apply(X[idx_unique,], 1, paste, collapse = "_"))]
-        if (!is.na(match_idx)) {
-          resultado_2d[i, ] <- resultado_2d[which(idx_unique)[match_idx], ]
-        }
-      }
-    }
-    metodo_usado <- "t-SNE"
-  }, error = function(e) {
-    resultado_2d <<- NULL
-  })
-}
-
-# Fallback a PCA
-if (is.null(resultado_2d)) {
-  pca_out <- prcomp(X, center = FALSE, scale. = FALSE)
-  resultado_2d <- pca_out$x[, 1:2]
-  metodo_usado <- "PCA (fallback)"
-}
-```
-
-```{r otros-algoritmos-plot, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
-# Grafica 2D coloreada por cluster
-df_plot <- data.frame(
-  Dim1 = resultado_2d[, 1],
-  Dim2 = resultado_2d[, 2],
-  Cluster = as.factor(cluster_vec)
-)
-
-ggplot(df_plot, aes(x = Dim1, y = Dim2, color = Cluster)) +
-  geom_point(alpha = 0.6, size = 2) +
-  scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00")) +
-  labs(
-    title = paste("Proyeccion 2D usando:", metodo_usado),
-    x = "Dimension 1",
-    y = "Dimension 2",
-    color = "Cluster"
-  ) +
-  theme_minimal() +
-  theme(legend.position = "right")
-```
+UMAP me confirmó que k-means captura un grupo bien marcado de películas grandes, pero que entre películas pequeñas y medianas el traslape es normal por la similitud de sus características.
 
 ### **Lo más interesante sobre algoritmos de aprendizaje no supervisado**
 
