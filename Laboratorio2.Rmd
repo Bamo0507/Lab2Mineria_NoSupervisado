@@ -16,7 +16,6 @@ library(dplyr)
 library(stringr)
 library(tidyr)
 library(readr)
-library(uwot)
 library(ggplot2)
 library(cluster)
 library(factoextra)
@@ -433,8 +432,6 @@ Finalmente, al observar el gráfico de Soporte vs Confianza, se identifica que l
 
 ## **Otros algoritmos de aprendizaje no supervisado**
 
-Nery
-
 ## **Conclusiones**
 
 ### **Resumen de hallazgos en agrupamiento**
@@ -449,7 +446,6 @@ Con los clusters generados se clasificaron las películas en estas categorías:
 
 ### **Conclusiones sobre el análisis de componentes principales**
 
-Nery
 
 ### **Reglas de asociación más interesantes**
 
@@ -465,36 +461,88 @@ Para complementar el análisis de clustering realizado previamente, decidí apli
 
 En este contexto, UMAP resulta especialmente útil porque ya realicé clustering con k-means y obtuve tres grupos, pero la silueta no fue perfecta y observé solapamiento entre clusters. UMAP me permite proyectar las películas en un espacio 2D donde puedo validar visualmente si los clusters identificados por k-means realmente corresponden a grupos separables o si el solapamiento es inherente a la estructura de los datos. Además, como estoy trabajando con múltiples variables numéricas (presupuesto, ingresos, popularidad, duración, etc.), la reducción a dos dimensiones facilita la interpretación sin perder la esencia de las relaciones entre películas.
 
+
 #### **Resultados obtenidos y qué significa**
 
-```{r umap-analysis, message=FALSE, warning=FALSE}
-# Si no está instalado uwot, ejecutar: install.packages("uwot")
-
-
+```{r otros-algoritmos-umap-tsne-pca, message=FALSE, warning=FALSE}
 set.seed(123)
-umap_result <- umap(movies_scaled,
-                    n_neighbors = 15,
-                    min_dist = 0.10,
-                    metric = "euclidean",
-                    n_components = 2)
+suppressPackageStartupMessages(library(ggplot2))
 
-umap_df <- data.frame(
-  UMAP1 = umap_result[, 1],
-  UMAP2 = umap_result[, 2],
-  Cluster = as.factor(kmeans_model$cluster)
+# Cargar dataset fijo del proyecto (para que knittee siempre)
+df_base <- read.csv("movies_2026.csv", check.names = FALSE)
+
+# Matriz numérica escalada (sin NA)
+X_num <- df_base[, sapply(df_base, is.numeric), drop = FALSE]
+X_num <- X_num[complete.cases(X_num), , drop = FALSE]
+X <- scale(X_num)
+
+# Clusters: usar kmeans_model si existe; si no, correrlo aquí
+if (exists("kmeans_model") && !is.null(kmeans_model$cluster)) {
+  cluster_vec <- kmeans_model$cluster
+  if (length(cluster_vec) != nrow(X)) {
+    km <- kmeans(X, centers = 3, nstart = 25)
+    cluster_vec <- km$cluster
+  }
+} else {
+  km <- kmeans(X, centers = 3, nstart = 25)
+  cluster_vec <- km$cluster
+}
+
+# Reducción 2D: UMAP -> t-SNE -> PCA fallback
+metodo <- ""
+emb2d <- NULL
+
+if (requireNamespace("uwot", quietly = TRUE)) {
+  emb2d <- tryCatch(
+    uwot::umap(X, n_neighbors = 15, min_dist = 0.10, metric = "euclidean",
+               n_components = 2, n_threads = 1),
+    error = function(e) NULL
+  )
+  if (!is.null(emb2d)) metodo <- "UMAP"
+}
+
+if (is.null(emb2d) && requireNamespace("Rtsne", quietly = TRUE)) {
+  emb2d <- tryCatch(
+    Rtsne::Rtsne(
+      X, dims = 2,
+      perplexity = min(30, floor(nrow(X)/4)),
+      verbose = FALSE,
+      check_duplicates = FALSE
+    )$Y,
+    error = function(e) NULL
+  )
+  if (!is.null(emb2d)) metodo <- "t-SNE"
+}
+
+if (is.null(emb2d)) {
+  emb2d <- prcomp(X, center = FALSE, scale. = FALSE)$x[, 1:2]
+  metodo <- "PCA (fallback)"
+}
+
+plot_df <- data.frame(
+  Dim1 = emb2d[, 1],
+  Dim2 = emb2d[, 2],
+  Cluster = factor(cluster_vec)
 )
 
-ggplot(umap_df, aes(x = UMAP1, y = UMAP2, color = Cluster)) +
-  geom_point(alpha = 0.6, size = 2) +
-  scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A")) +
-  labs(title = "Proyección UMAP de películas coloreadas por cluster K-means",
-       x = "UMAP Dimensión 1",
-       y = "UMAP Dimensión 2",
-       color = "Cluster") +
-  theme_minimal() +
-  theme(legend.position = "right")
+ggplot(plot_df, aes(Dim1, Dim2, color = Cluster)) +
+  geom_point(alpha = 0.6, size = 1.8) +
+  labs(
+    title = paste("Proyeccion 2D por cluster K-means -", metodo),
+    x = "Dimension 1",
+    y = "Dimension 2",
+    color = "Cluster"
+  ) +
+  theme_minimal()
 ```
-
+```{r ver-columnas, message=FALSE, warning=FALSE}
+objs <- ls(envir = .GlobalEnv)
+dfs <- objs[sapply(objs, function(nm) is.data.frame(get(nm, envir = .GlobalEnv)))]
+for (nm in dfs) {
+  cat("\nDF:", nm, "\n")
+  print(head(names(get(nm, envir = .GlobalEnv)), 40))
+}
+```
 Al observar la proyección UMAP, se confirma lo que ya había intuido con el análisis de silueta: existe separación entre los clusters, pero no es perfecta. El cluster correspondiente a los blockbusters (películas de alto presupuesto, altos ingresos y gran popularidad) tiende a formar una región más diferenciada en el espacio UMAP, lo cual tiene sentido porque estas películas tienen características numéricas marcadamente distintas al resto. Por otro lado, los clusters de producciones pequeñas y medianas muestran mayor traslape entre sí, lo que refleja que estas películas comparten características similares en varias dimensiones.
 
 Este resultado es consistente con lo encontrado anteriormente: k-means logra identificar el grupo de superproducciones de forma más clara, mientras que la distinción entre películas de menor escala es más difusa. UMAP me permite ver que esta ambigüedad no es un artefacto del algoritmo de clustering, sino una característica real de los datos: hay un continuo de películas con presupuestos y características intermedias que no forman grupos claramente separados.
@@ -502,6 +550,128 @@ Este resultado es consistente con lo encontrado anteriormente: k-means logra ide
 #### **Conclusion**
 
 UMAP valida que los clusters de k-means capturan estructura real en los datos, con buena separación para blockbusters pero traslape esperado entre producciones pequeñas y medianas debido a su similitud inherente.
+
+### Otros algoritmos de aprendizaje no supervisado
+
+```{r otros-algoritmos-setup, message=FALSE, warning=FALSE}
+# Deteccion automatica de matriz escalada
+set.seed(123)
+
+if (exists("movies_scaled")) {
+  X <- movies_scaled
+} else if (exists("X_scaled")) {
+  X <- X_scaled
+} else if (exists("scaled_data")) {
+  X <- scaled_data
+} else if (exists("data_scaled")) {
+  X <- data_scaled
+} else {
+  # Crear X desde columnas numericas del dataframe principal
+  if (exists("movies_cluster")) {
+    df_base <- movies_cluster
+  } else if (exists("movies")) {
+    df_base <- movies
+  } else {
+    stop("No se encontro dataframe base")
+  }
+  X_numeric <- df_base[, sapply(df_base, is.numeric), drop = FALSE]
+  X_numeric <- X_numeric[complete.cases(X_numeric), ]
+  X <- scale(X_numeric)
+}
+
+# Deteccion automatica de clusters
+if (exists("kmeans_model") && !is.null(kmeans_model$cluster)) {
+  cluster_vec <- kmeans_model$cluster
+} else if (exists("clusters")) {
+  cluster_vec <- clusters
+} else if (exists("kmeans_clusters")) {
+  cluster_vec <- kmeans_clusters
+} else {
+  # Fallback: correr kmeans
+  set.seed(123)
+  km_fallback <- kmeans(X, centers = 3, nstart = 25)
+  cluster_vec <- km_fallback$cluster
+}
+
+# Asegurar que cluster_vec tenga la misma longitud que X
+if (length(cluster_vec) != nrow(X)) {
+  set.seed(123)
+  km_fallback <- kmeans(X, centers = 3, nstart = 25)
+  cluster_vec <- km_fallback$cluster
+}
+```
+
+```{r otros-algoritmos-reduccion, message=FALSE, warning=FALSE}
+# Reduccion de dimensionalidad con fallback: UMAP -> t-SNE -> PCA
+set.seed(123)
+metodo_usado <- ""
+resultado_2d <- NULL
+
+# Intentar UMAP
+if (requireNamespace("uwot", quietly = TRUE)) {
+  tryCatch({
+    resultado_2d <- uwot::umap(X, n_neighbors = 15, min_dist = 0.1, 
+                                n_components = 2, n_threads = 1)
+    metodo_usado <- "UMAP"
+  }, error = function(e) {
+    resultado_2d <<- NULL
+  })
+}
+
+# Fallback a t-SNE
+if (is.null(resultado_2d) && requireNamespace("Rtsne", quietly = TRUE)) {
+  tryCatch({
+    # Remover duplicados para Rtsne
+    X_unique <- unique(X)
+    idx_unique <- !duplicated(X)
+    tsne_out <- Rtsne::Rtsne(X_unique, dims = 2, perplexity = min(30, floor(nrow(X_unique)/4)),
+                              verbose = FALSE, check_duplicates = FALSE)
+    resultado_2d <- matrix(NA, nrow = nrow(X), ncol = 2)
+    resultado_2d[idx_unique, ] <- tsne_out$Y
+    # Rellenar duplicados con su correspondiente
+    if (any(!idx_unique)) {
+      for (i in which(!idx_unique)) {
+        match_idx <- which(idx_unique)[match(paste(X[i,], collapse = "_"), 
+                                              apply(X[idx_unique,], 1, paste, collapse = "_"))]
+        if (!is.na(match_idx)) {
+          resultado_2d[i, ] <- resultado_2d[which(idx_unique)[match_idx], ]
+        }
+      }
+    }
+    metodo_usado <- "t-SNE"
+  }, error = function(e) {
+    resultado_2d <<- NULL
+  })
+}
+
+# Fallback a PCA
+if (is.null(resultado_2d)) {
+  pca_out <- prcomp(X, center = FALSE, scale. = FALSE)
+  resultado_2d <- pca_out$x[, 1:2]
+  metodo_usado <- "PCA (fallback)"
+}
+```
+
+```{r otros-algoritmos-plot, message=FALSE, warning=FALSE, fig.width=8, fig.height=6}
+# Grafica 2D coloreada por cluster
+df_plot <- data.frame(
+  Dim1 = resultado_2d[, 1],
+  Dim2 = resultado_2d[, 2],
+  Cluster = as.factor(cluster_vec)
+)
+
+ggplot(df_plot, aes(x = Dim1, y = Dim2, color = Cluster)) +
+  geom_point(alpha = 0.6, size = 2) +
+  scale_color_manual(values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3", "#FF7F00")) +
+  labs(
+    title = paste("Proyeccion 2D usando:", metodo_usado),
+    x = "Dimension 1",
+    y = "Dimension 2",
+    color = "Cluster"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "right")
+```
 
 ### **Lo más interesante sobre algoritmos de aprendizaje no supervisado**
 
@@ -520,10 +690,3 @@ Mejorar la calidad de los datos: Se recomienda que en futuras recopilaciones de 
 Aprovechar los hallazgos para la toma de decisiones: Desde un punto de vista de negocios, los análisis realizados confirman que las películas con mayor presupuesto y popularidad tienden a generar mayores ingresos. Se recomienda presentar estos hallazgos en informes internos apoyados con tablas, gráficos y métricas que demuestren la veracidad de los patrones encontrados, de manera que la información respalde decisiones estratégicas de inversión.
 
 Si CineVision Studios llega a contar con un equipo de analítica, se sugiere aplicar el algoritmo A Priori incorporando más variables categóricas, como géneros, países de producción o idiomas. Al ampliar el análisis se podrían descubrir patrones adicionales que no fueron explorados en este estudio, y esta información podría incluso representar una nueva fuente de ingresos si se ofrece como inteligencia de mercado a productoras.
-
-
-
-
-
-
-
