@@ -2,14 +2,16 @@
 title: "Laboratorio 2 - Cinevision"
 author: "Bryan Martínez, Adriana Palacios, y Nery Molina"
 date: "`r Sys.Date()`"
-output: pdf_document
+output:
+  pdf_document:
+    latex_engine: xelatex
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   echo = TRUE,
   fig.align = "center",
-  out.width = "0.9\\linewidth"
+  out.width = "90%"
 )
 library(nortest)
 library(dplyr)
@@ -136,7 +138,7 @@ fviz_cluster(kmeans_model, data = movies_scaled,
              geom = "point",
              ellipse.type = "convex",
              ggtheme = theme_minimal()) +
-  labs(title = "Clustering K-means (k=2)")
+  labs(title = "Clustering K-means (k=3)")
 
 table(kmeans_model$cluster)
 ```
@@ -261,33 +263,24 @@ Cluster 3 Blockbusters: Presupuestos altos, ingresos masivos y la mayor populari
 
 ## **Análisis de componentes Principales**
 
-• Estudia la matriz de correlación, la agrega y explica lo que observa en ella
-
-
+- Estudia la matriz de correlación, la agrega y explica lo que observa en ella
 Variables usadas en esta matriz:
 
 budget,revenue,runtime,popularity,voteAvg,voteCount,genresAmount,productionCoAmount,productionCountriesAmount,actorsAmount,castWomenAmount,castMenAmount,releaseYear
 
--Hay correlaciones fuertes entre variables de “éxito comercial / exposición” 
+-Hay correlaciones fuertes entre variables de "éxito comercial / exposición" 
 Algunos ejemplos son 
 runtime y voteAvg tienen correlación moderada-alta
 
-runtime ↔ voteAvg ≈ 0.60
-Interpretación: películas con mayor presupuesto tienden a recaudar más y también a acumular más votos.
-Esto sugiere que estas variables comparten información (bueno para PCA, porque hay estructura común).
--Runtime y voteAvg tienen correlación moderada-alta
-Algunos ejemplos son 
-runtime y voteAvg tienen correlación moderada-alta
-
-runtime ↔ voteAvg ≈ 0.60
+runtime <-> voteAvg ≈ 0.60
 Interpretación: en este dataset, las películas más largas tienden a tener mejor calificación promedio (ojo: esto es correlación, no causalidad).
 
 -releaseYear se relaciona negativamente con varias variables
 Algunos ejemplos son
 
-releaseYear ↔ voteAvg ≈ -0.54
+releaseYear <-> voteAvg ≈ -0.54
 
-releaseYear ↔ runtime ≈ -0.49
+releaseYear <-> runtime ≈ -0.49
 
 Interpretación: las películas más recientes (mayor releaseYear) tienden a tener, en promedio, menor duración, menor calificación promedio y menos votos acumulados (esto último puede pasar porque han estado menos tiempo disponibles).
 
@@ -300,30 +293,31 @@ castWomenAmount
 castMenAmount 
 
 popularity
+
 Interpretación: estas variables no están tan alineadas con el bloque de presupuesto/recaudación/votos, así que podrían aportar dimensiones distintas.
 
 Relación interesante en el elenco / producción
 
 El ejemplo mas claro es:
 
-productionCountriesAmount ↔ castMenAmount ≈ 0.44 (moderada)
+productionCountriesAmount <-> castMenAmount ≈ 0.44 (moderada)
 
 Interpretación: producciones en más países podrían asociarse con elencos más grandes/masculinos en este dataset (habría que revisar si esto es efecto de tipo de producción o de datos faltantes).
 
-• Determina si es posible usar la técnica de análisis factorial para hallar las componentes principales
+- Determina si es posible usar la técnica de análisis factorial para hallar las componentes principales
 
 Sí es posible aplicar una técnica de análisis factorial (o PCA) sobre las variables numéricas del conjunto de datos, ya que el índice KMO global obtenido fue 0.835, lo cual se considera bueno y sugiere que existe suficiente varianza común entre las variables para realizar este tipo de análisis. No obstante, al revisar la adecuación por variable, castMenAmount presenta un KMO cercano a 0.49, lo que indica que esa variable podría no ajustarse tan bien a la estructura factorial y conviene revisarla en análisis posteriores.
 
-• Determina si vale la pena aplicar las componentes principales interpretando la prueba de esfericidad de Bartlett
+- Determina si vale la pena aplicar las componentes principales interpretando la prueba de esfericidad de Bartlett
 
 Sí vale la pena aplicar componentes principales. La prueba de esfericidad de Bartlett resultó altamente significativa ( 𝜒 2 ( 78 ) = 115646.63 χ 2 (78)=115646.63, 𝑝 < 0.001 p<0.001), por lo que se rechaza la hipótesis nula de que la matriz de correlación sea una matriz identidad. Esto indica que existen correlaciones suficientes entre las variables y, en consecuencia, el uso de PCA está justificado en este conjunto de datos.
 
-• Obtiene los componentes principales y explica cuántos seleccionará para explicar la mayor variabilidad posible.
+- Obtiene los componentes principales y explica cuántos seleccionará para explicar la mayor variabilidad posible.
 
 Al aplicar PCA sobre las variables numéricas estandarizadas (excluyendo el identificador id), se obtuvo que el CP1 explica 37.63% de la varianza, el CP2 13.31% y el CP3 10.44%, acumulando 61.38% entre los tres primeros componentes.
 Si se utiliza el criterio de autovalores mayores que 1 (Kaiser), se seleccionarían 3 componentes principales. Sin embargo, para explicar una mayor proporción de variabilidad, se pueden seleccionar 6 componentes, con los cuales se alcanza aproximadamente 80.21% de la varianza acumulada. En este análisis se seleccionan 6 componentes para conservar la mayor variabilidad posible con una reducción de dimensionalidad razonable.
 
-• Interpreta los coeficientes principales.  
+- Interpreta los coeficientes principales.  
 
 En el primer componente principal (CP1) destacan coeficientes positivos altos en actorsAmount, castWomenAmount, runtime, voteCount, voteAvg, budget y revenue, y un coeficiente negativo relevante en releaseYear. Esto sugiere que CP1 representa una dimensión asociada a películas con mayor escala de producción/recepción (más presupuesto, recaudación, votos y elenco), en contraste con películas más recientes.
 
@@ -393,11 +387,10 @@ plot(rules_1, method = "scatterplot",
      shading = "lift",
      main = "Soporte vs Confianza")
 
-plot(rules_best, method = "graph",
-     engine = "htmlwidget")
+plot(rules_best, method = "graph")
 ```
 
-### **2.1 Construcción de reglas de asociación usando el algoritmo A Priori**
+### **Construcción de reglas de asociación usando el algoritmo A Priori**
 
 El algoritmo A Priori es un método de aprendizaje no supervisado que permite identificar relaciones frecuentes entre variables dentro de un conjunto de datos. Para comprender su funcionamiento, resulta útil pensar en una analogía: imaginemos que vamos al supermercado y en nuestro carrito tenemos leche, huevos y harina. Lo que A Priori hace es analizar las transacciones de muchos compradores y determinar que, dado que se tienen esos tres elementos, es muy probable que también se adquiera mantequilla, porque quizá el comprador quiere hacer un pastel. En este contexto, cada carrito de compras es una "transacción", y el algoritmo busca patrones frecuentes entre los ítems que las componen.
 
@@ -405,13 +398,13 @@ En nuestro caso, en lugar de productos de supermercado, trabajamos con caracter�
 
 Dado que el algoritmo A Priori no trabaja con variables numéricas continuas sino con categorías, fue necesario discretizar estas variables. Para ello se utilizaron terciles: el primer tercil (0% a 33%) corresponde a la categoría "bajo", el segundo tercil (33% a 66%) a "medio", y el tercer tercil (66% a 100%) a "alto". De esta forma, cada película queda descrita por cuatro categorías, por ejemplo: {budget_alto, revenue_alto, runtime_largo, popularity_alta}.
 
-### **2.2 Prueba con varios valores de confianza y soporte**
+### **Prueba con varios valores de confianza y soporte**
 
 Se generaron reglas de asociación con tres configuraciones distintas, variando los parámetros de soporte y confianza:
 
-Configuración 1: soporte = 0.05, confianza = 0.5 → 56 reglas generadas
-Configuración 2: soporte = 0.03, confianza = 0.6 → 42 reglas generadas
-Configuración 3: soporte = 0.01, confianza = 0.7 → 20 reglas generadas
+Configuración 1: soporte = 0.05, confianza = 0.5 -> 56 reglas generadas
+Configuración 2: soporte = 0.03, confianza = 0.6 -> 42 reglas generadas
+Configuración 3: soporte = 0.01, confianza = 0.7 -> 20 reglas generadas
 
 El soporte indica la proporción mínima de películas en las que debe aparecer la combinación para que la regla sea considerada. Por ejemplo, un soporte de 0.05 significa que la regla debe estar presente en al menos el 5% de las películas. La confianza indica la probabilidad de que, si se cumple el lado izquierdo de la regla (antecedente), también se cumpla el lado derecho (consecuente). Una confianza de 0.5 significa que esto ocurre al menos el 50% de las veces. El parámetro minlen = 2 establece que cada regla debe involucrar al menos dos ítems (un antecedente y un consecuente), descartando reglas triviales de un solo elemento.
 
@@ -419,7 +412,7 @@ La estrategia fue comenzar con una configuración más permisiva (mayor soporte,
 
 Al observar la gráfica de ítems más frecuentes, se identificó que las 12 categorías resultantes de la discretización presentan frecuencias parejas, todas en torno a las 1,400-1,500 apariciones.
 
-### **2.3 Discusión de reglas de asociación**
+### **Discusión de reglas de asociación**
 
 Todas las reglas generadas presentaron un lift superior a 1, lo que indica que los patrones identificados son reales y no resultado de la aleatoriedad.
 
@@ -431,28 +424,6 @@ Todas las reglas generadas presentaron un lift superior a 1, lo que indica que l
 Finalmente, al observar el gráfico de Soporte vs Confianza, se identifica que las reglas con mayor lift se concentran en zonas de alta confianza pero bajo soporte. Esto significa que si se cumplen los antecedentes de estas reglas, es muy probable que las consecuencias ocurran; sin embargo, al tener un soporte bajo, este comportamiento aplica únicamente para subgrupos específicos dentro del dataset y no para la totalidad de las películas.
 
 ## **Otros algoritmos de aprendizaje no supervisado**
-
-## **Conclusiones**
-
-### **Resumen de hallazgos en agrupamiento**
-
-Se aplicaron dos algoritmos de agrupamiento: K-means y clustering jerárquico. Tras comparar ambos resultados, se determinó que K-means fue el más adecuado para este dataset. El clustering jerárquico presentó resultados poco satisfactorios, ya que uno de los clusters generados quedó completamente contenido dentro del área de otro, lo que dificulta la interpretación. En contraste, K-means, si bien generó clusters con cierto grado de solapamiento entre los tres grupos, permitió identificar de forma más clara la pertenencia de las películas a cada cluster. Personalmente, si tuviera que abordar nuevamente un problema de agrupamiento, optaría por K-means como primera opción dado el mejor desempeño que mostró en este caso.
-
-Con los clusters generados se clasificaron las películas en estas categorías:
-
-- Cluster 1: películas con presupuestos e ingresos moderados, casting pequeño y duración corta.
-- Cluster 2: películas con presupuestos similares a los del primer cluster, pero que tuvieron mejores ingresos.
-- Cluster 3: películas de mayor escala, presupuestos altos, ingresos grandes y muy populares.
-
-### **Conclusiones sobre el análisis de componentes principales**
-
-
-### **Reglas de asociación más interesantes**
-
-Lo más destacable de las reglas de asociación es que lograron validar lo que uno esperaría de forma lógica. Si una película tiene buen presupuesto, es popular y tiene una duración decente, lo natural sería esperar que le vaya bien en el mercado. Y eso es justamente lo que las reglas confirmaron: las películas con presupuesto bajo, duración corta y popularidad baja presentaban ingresos bajos, mientras que las películas con presupuesto alto, duración larga y popularidad alta presentaban ingresos altos, ambas con confianzas superiores al 86%.
-
-Adicionalmente, se encontraron reglas que validaron este comportamiento incluso con menos variables. Por ejemplo, con solo tener presupuesto alto y popularidad alta, ya se predecían ingresos altos con un 85% de confianza. Esto refuerza la idea de que la inversión y la visibilidad son los factores más determinantes en el éxito comercial de una película.
-
 
 #### **Algoritmo elegido y por qué es útil**
 
@@ -542,14 +513,31 @@ for (nm in dfs) {
   print(head(names(get(nm, envir = .GlobalEnv)), 40))
 }
 ```
+
 Al ver la proyección 2D, me sirvió para confirmar que los clusters que saqué con k-means no son inventados: sí hay estructura en los datos. El grupo que representa películas de mayor escala tiende a quedar más concentrado y más separado, lo cual tiene sentido porque esas películas tienen valores claramente más altos en variables como presupuesto, ingresos y popularidad.
 En cambio, los otros dos grupos se traslapan más, y eso me indica que la diferencia entre producciones pequeñas y medianas no es tan “cortada”, sino más bien un continuo. Para mí esto es importante porque me dice que el solapamiento no es solo un problema del algoritmo, sino una característica real del dataset, y por eso esas fronteras hay que interpretarlas con cuidado.
 
-Elegí UMAP porque me permite bajar todas las variables numéricas a dos dimensiones sin asumir que la relación entre variables es lineal. Como yo ya había visto que la silueta no era perfecta y que había mezcla entre clusters, esta proyección me ayuda a validar visualmente si k-means realmente está capturando patrones del dataset o si los grupos se ven completamente revueltos.
+## **Conclusiones**
 
-#### **Conclusion**
+### **Resumen de hallazgos en agrupamiento**
+
+Se aplicaron dos algoritmos de agrupamiento: K-means y clustering jerárquico. Tras comparar ambos resultados, se determinó que K-means fue el más adecuado para este dataset. El clustering jerárquico presentó resultados poco satisfactorios, ya que uno de los clusters generados quedó completamente contenido dentro del área de otro, lo que dificulta la interpretación. En contraste, K-means, si bien generó clusters con cierto grado de solapamiento entre los tres grupos, permitió identificar de forma más clara la pertenencia de las películas a cada cluster. Personalmente, si tuviera que abordar nuevamente un problema de agrupamiento, optaría por K-means como primera opción dado el mejor desempeño que mostró en este caso.
+
+Con los clusters generados se clasificaron las películas en estas categorías:
+
+- Cluster 1: películas con presupuestos e ingresos moderados, casting pequeño y duración corta.
+- Cluster 2: películas con presupuestos similares a los del primer cluster, pero que tuvieron mejores ingresos.
+- Cluster 3: películas de mayor escala, presupuestos altos, ingresos grandes y muy populares.
+
+### **Conclusiones sobre el análisis de componentes principales**
 
 UMAP me confirmó que k-means captura un grupo bien marcado de películas grandes, pero que entre películas pequeñas y medianas el traslape es normal por la similitud de sus características.
+
+### **Reglas de asociación más interesantes**
+
+Lo más destacable de las reglas de asociación es que lograron validar lo que uno esperaría de forma lógica. Si una película tiene buen presupuesto, es popular y tiene una duración decente, lo natural sería esperar que le vaya bien en el mercado. Y eso es justamente lo que las reglas confirmaron: las películas con presupuesto bajo, duración corta y popularidad baja presentaban ingresos bajos, mientras que las películas con presupuesto alto, duración larga y popularidad alta presentaban ingresos altos, ambas con confianzas superiores al 86%.
+
+Adicionalmente, se encontraron reglas que validaron este comportamiento incluso con menos variables. Por ejemplo, con solo tener presupuesto alto y popularidad alta, ya se predecían ingresos altos con un 85% de confianza. Esto refuerza la idea de que la inversión y la visibilidad son los factores más determinantes en el éxito comercial de una película.
 
 ### Otros algoritmos de aprendizaje no supervisado
 
